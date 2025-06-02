@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/aero?serverTimezone=Asia/Seoul
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+tour:
+  api:
+    key: "%2FE3zMpin61nMJs5b63UAlN%2BuezA9Hy%2Bq5bzs3ipLgyyDdkacbnLwaAJV8qOwfJxvU5I44L%2BvtQdN1kU02JsvMw%3D%3D"
