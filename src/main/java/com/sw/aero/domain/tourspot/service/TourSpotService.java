@@ -2,22 +2,24 @@ package com.sw.aero.domain.tourspot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
+import com.sw.aero.domain.tourspot.repository.TourSpotLikeRepository;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -29,6 +31,7 @@ public class TourSpotService {
     private String apiKey;
 
     private final TourSpotRepository tourSpotRepository;
+    private final TourSpotLikeRepository tourSpotLikeRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -58,7 +61,7 @@ public class TourSpotService {
                         URI uri = new URI(listUrl);
 
                         ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
-                        log.info("📦 LIST response: {}", response.getBody());
+                        log.info("\uD83D\uDCE6 LIST response: {}", response.getBody());
 
                         JsonNode root = objectMapper.readTree(response.getBody());
                         String resultCode = root.path("response").path("header").path("resultCode").asText();
@@ -146,23 +149,23 @@ public class TourSpotService {
 
                                 spots.add(spot);
                             } catch (Exception e) {
-                                log.warn("❌ DETAIL 파싱 실패: contentId={}, 오류={}", contentId, e.getMessage());
+                                log.warn("\u274C DETAIL \uD30C\uC2F1 \uC2E4\uD328: contentId={}, \uC624\uB958={}", contentId, e.getMessage());
                             }
                         }
 
                         tourSpotRepository.saveAll(spots);
 
                     } catch (Exception e) {
-                        log.error("❌ 전체 요청 실패: region={}, category={}, page={}", regionCode, category, page);
-                        log.error("에러 메시지: ", e);
+                        log.error("\u274C \uC804\uCCB4 \uC694\uCCAD \uC2E4\uD328: region={}, category={}, page={}", regionCode, category, page);
+                        log.error("\uC5D0\uB7EC \uBA54\uC2DC\uC9C0: ", e);
                     }
                 }
             }
         }
     }
 
-    public Page<TourSpot> getFilteredTourSpots(String areaCode, String sigunguCode, List<String> facilityFilters, Pageable pageable) {
-        return tourSpotRepository.findAll((root, query, cb) -> {
+    public Page<TourSpotResponse> getFilteredTourSpots(String areaCode, String sigunguCode, List<String> facilityFilters, List<String> themeFilters, Pageable pageable) {
+        Page<TourSpot> spots = tourSpotRepository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (areaCode != null && !areaCode.isEmpty()) {
@@ -179,7 +182,36 @@ public class TourSpotService {
                 }
             }
 
+            if (themeFilters != null && !themeFilters.isEmpty()) {
+                predicates.add(root.get("categoryCode").in(themeFilters));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         }, pageable);
+
+        // 좋아요 정렬이면 직접 정렬
+        if (pageable.getSort().isUnsorted()) {
+            List<TourSpotResponse> responses = spots.getContent().stream()
+                    .map(spot -> {
+                        long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
+                        return TourSpotResponse.from(spot, likeCount);
+                    })
+                    .sorted(Comparator.comparingLong(TourSpotResponse::getLikeCount).reversed()) // 좋아요 많은 순
+                    .toList();
+
+            // 수동 페이징 처리
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), responses.size());
+            List<TourSpotResponse> pageContent = responses.subList(start, end);
+
+            return new PageImpl<>(pageContent, pageable, responses.size());
+        }
+
+        // 기본 정렬 (latest 등)일 경우
+        return spots.map(spot -> {
+            long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
+            return TourSpotResponse.from(spot, likeCount);
+        });
     }
+
 }

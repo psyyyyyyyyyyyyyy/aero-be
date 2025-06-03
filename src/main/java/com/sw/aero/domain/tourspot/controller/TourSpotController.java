@@ -1,5 +1,6 @@
 package com.sw.aero.domain.tourspot.controller;
 
+import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
 import com.sw.aero.domain.tourspot.service.TourSpotService;
@@ -34,22 +35,23 @@ public class TourSpotController {
 
     // 조건 필터 적용 + 페이징 + 정렬 관광지 조회
     @GetMapping("/filter")
-    public Page<TourSpot> getFilteredTourSpots(
+    public Page<TourSpotResponse> getFilteredTourSpots(
             @RequestParam(required = false) String areaCode,
             @RequestParam(required = false) String sigunguCode,
             @RequestParam(required = false) List<String> facilityFilters,
+            @RequestParam(required = false) List<String> themeFilters,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "latest") String sortBy
     ) {
-        Sort sort = Sort.by("id").descending();
-        if ("likes".equals(sortBy)) {
-            sort = Sort.by("likeCount").descending();
-        } else if ("latest".equals(sortBy)) {
+        Sort sort = Sort.by("id").descending(); // 기본
+        if ("latest".equals(sortBy)) {
             sort = Sort.by("createdTime").descending();
+        } else if ("likes".equals(sortBy)) {
+            sort = Sort.unsorted(); // 수동 정렬 처리
         }
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        return tourSpotService.getFilteredTourSpots(areaCode, sigunguCode, facilityFilters, pageable);
+        return tourSpotService.getFilteredTourSpots(areaCode, sigunguCode, facilityFilters, themeFilters, pageable);
     }
 }
