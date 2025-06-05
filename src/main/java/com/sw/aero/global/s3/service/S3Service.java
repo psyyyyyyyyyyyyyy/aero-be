@@ -14,6 +14,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -31,7 +32,7 @@ public class S3Service {
      */
     public String upload(MultipartFile multipartFile, String dirName) {
         String originalFileName = multipartFile.getOriginalFilename();
-        String uniqueFileName = UUID.randomUUID() + "_" + originalFileName.replaceAll("\\s", "_");
+        String uniqueFileName = UUID.randomUUID() + "_" + Objects.requireNonNull(originalFileName).replaceAll("\\s", "_");
         String key = dirName + "/" + uniqueFileName;
 
         try {

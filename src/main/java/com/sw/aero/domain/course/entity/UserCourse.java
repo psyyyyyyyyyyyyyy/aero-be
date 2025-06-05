@@ -14,14 +14,15 @@ import java.util.List;
 @Builder
 public class UserCourse {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String title;
     private String theme;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private int people;
+    private String people;
     private boolean allow;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -37,7 +38,7 @@ public class UserCourse {
         this.createdAt = LocalDateTime.now();
     }
 
-    public void update(String title, String theme, LocalDateTime startDate, LocalDateTime endDate, int people, boolean allow) {
+    public void update(String title, String theme, LocalDateTime startDate, LocalDateTime endDate, String people, boolean allow) {
         this.title = title;
         this.theme = theme;
         this.startDate = startDate;

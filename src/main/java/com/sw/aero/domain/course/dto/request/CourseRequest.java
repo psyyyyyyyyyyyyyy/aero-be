@@ -22,8 +22,8 @@ public class CourseRequest {
     @Schema(example = "2025-06-12T00:00:00")
     private LocalDateTime endDate;
 
-    @Schema(example = "2")
-    private int people;
+    @Schema(example = "혼자서")
+    private String people;
 
     @Schema(example = "true")
     private boolean allow;

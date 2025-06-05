@@ -1,12 +1,12 @@
 package com.sw.aero.domain.course.dto.response;
 
-import java.util.List;
 import com.sw.aero.domain.course.entity.DetailSchedule;
 import com.sw.aero.domain.course.entity.UserCourse;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -16,7 +16,7 @@ public class CourseResponse {
     private String theme;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private int people;
+    private String people;
     private boolean allow;
 
     private List<DetailScheduleDto> detailedSchedule;

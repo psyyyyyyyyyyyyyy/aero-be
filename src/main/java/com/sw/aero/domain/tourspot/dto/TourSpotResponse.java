@@ -13,6 +13,8 @@ public class TourSpotResponse {
     private String areaCode;
     private String firstImage;
     private long likeCount;
+    private Long contentId;
+
 
     public static TourSpotResponse from(TourSpot spot, long likeCount) {
         return TourSpotResponse.builder()
@@ -22,6 +24,7 @@ public class TourSpotResponse {
                 .areaCode(spot.getAreaCode())
                 .firstImage(spot.getFirstImage())
                 .likeCount(likeCount)
+                .contentId(spot.getContentId())
                 .build();
     }
 }
