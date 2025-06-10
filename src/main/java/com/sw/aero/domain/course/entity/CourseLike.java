@@ -1,5 +1,7 @@
 package com.sw.aero.domain.course.entity;
 
+import com.sw.aero.domain.aicourse.entity.AiCourse;
+import com.sw.aero.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,18 +10,19 @@ import lombok.*;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class DetailSchedule {
+public class CourseLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String time;
-    private String place;
-    private String description;
-
-    private Long tourSpotId;  // 관광지 ID
+    @ManyToOne(fetch = FetchType.LAZY)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private UserCourse userCourse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private AiCourse aiCourse;
 }
+

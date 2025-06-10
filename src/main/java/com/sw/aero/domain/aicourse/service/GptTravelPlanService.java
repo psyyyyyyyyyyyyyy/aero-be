@@ -5,6 +5,8 @@ import com.sw.aero.domain.aicourse.dto.TravelPlanDTO;
 import com.sw.aero.domain.aicourse.entity.AiCourse;
 import com.sw.aero.domain.aicourse.entity.AiDetailSchedule;
 import com.sw.aero.domain.aicourse.repository.AiCourseRepository;
+import com.sw.aero.domain.user.entity.User;
+import com.sw.aero.domain.user.repository.UserRepository;
 import com.sw.aero.global.gpt.OpenAiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ public class GptTravelPlanService {
     private final AiPromptBuilder aiPromptBuilder;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AiCourseRepository aiCourseRepository;
+    private final UserRepository userRepository;
 
     public TravelPlanDTO getTravelPlanFromGPT(String prompt) {
         try {
@@ -30,7 +33,10 @@ public class GptTravelPlanService {
         }
     }
 
-    public AiCourse saveAndReturnEntity(TravelPlanDTO dto) {
+    public AiCourse saveAndReturnEntity(TravelPlanDTO dto, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
         AiCourse course = AiCourse.builder()
                 .title(dto.getTitle())
                 .theme(dto.getTheme())
@@ -38,6 +44,7 @@ public class GptTravelPlanService {
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
                 .people(dto.getPeople())
+                .user(user) // 사용자 설정
                 .build();
 
         List<AiDetailSchedule> details = new ArrayList<>();
@@ -52,13 +59,19 @@ public class GptTravelPlanService {
                         .imageUrl(detail.getImageUrl())
                         .description(detail.getDescription())
                         .barrierFree(detail.getBarrierFree())
-                        .aiCourse(course) // 연관관계 설정
+                        .aiCourse(course)
                         .build();
                 details.add(entity);
             }
         }
 
-        course.setSchedules(details); // 양방향 연관관계 주입
+        course.setSchedules(details);
         return aiCourseRepository.save(course);
     }
+
+    public AiCourse getCourseById(Long id) {
+        return aiCourseRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 AiCourse가 존재하지 않습니다: id=" + id));
+    }
+
 }

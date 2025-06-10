@@ -3,6 +3,7 @@ package com.sw.aero.domain.tourspot.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
+import com.sw.aero.domain.tourspot.dto.TourSpotSearchResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.repository.TourSpotLikeRepository;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
@@ -18,9 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -212,6 +211,84 @@ public class TourSpotService {
             long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
             return TourSpotResponse.from(spot, likeCount);
         });
+    }
+
+    public Map<String, String> getBarrierFreeInfoByTourSpotId(Long contentId) {
+        TourSpot spot = tourSpotRepository.findByContentId(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 관광지를 찾을 수 없습니다: " + contentId));
+
+        Map<String, String> map = new HashMap<>();
+
+        if (spot.getParking() != null && !spot.getParking().isBlank()) map.put("parking", spot.getParking());
+        if (spot.getWheelchair() != null && !spot.getWheelchair().isBlank())
+            map.put("wheelchair", spot.getWheelchair());
+        if (spot.getRestroom() != null && !spot.getRestroom().isBlank()) map.put("restroom", spot.getRestroom());
+        if (spot.getElevator() != null && !spot.getElevator().isBlank()) map.put("elevator", spot.getElevator());
+        if (spot.getStroller() != null && !spot.getStroller().isBlank()) map.put("stroller", spot.getStroller());
+        if (spot.getLactationroom() != null && !spot.getLactationroom().isBlank())
+            map.put("lactationroom", spot.getLactationroom());
+        if (spot.getGuidesystem() != null && !spot.getGuidesystem().isBlank())
+            map.put("guidesystem", spot.getGuidesystem());
+        if (spot.getHelpdog() != null && !spot.getHelpdog().isBlank()) map.put("helpdog", spot.getHelpdog());
+        if (spot.getBraileblock() != null && !spot.getBraileblock().isBlank())
+            map.put("braileblock", spot.getBraileblock());
+        if (spot.getSignguide() != null && !spot.getSignguide().isBlank()) map.put("signguide", spot.getSignguide());
+        if (spot.getVideoguide() != null && !spot.getVideoguide().isBlank())
+            map.put("videoguide", spot.getVideoguide());
+        if (spot.getAudioguide() != null && !spot.getAudioguide().isBlank())
+            map.put("audioguide", spot.getAudioguide());
+        if (spot.getExit() != null && !spot.getExit().isBlank()) map.put("exit", spot.getExit());
+        if (spot.getRoute() != null && !spot.getRoute().isBlank()) map.put("route", spot.getRoute());
+        if (spot.getPublictransport() != null && !spot.getPublictransport().isBlank())
+            map.put("publictransport", spot.getPublictransport());
+        if (spot.getTicketoffice() != null && !spot.getTicketoffice().isBlank())
+            map.put("ticketoffice", spot.getTicketoffice());
+        if (spot.getPromotion() != null && !spot.getPromotion().isBlank()) map.put("promotion", spot.getPromotion());
+        if (spot.getAuditorium() != null && !spot.getAuditorium().isBlank())
+            map.put("auditorium", spot.getAuditorium());
+        if (spot.getRoom() != null && !spot.getRoom().isBlank()) map.put("room", spot.getRoom());
+        if (spot.getHandicapetc() != null && !spot.getHandicapetc().isBlank())
+            map.put("handicapetc", spot.getHandicapetc());
+        if (spot.getGuidehuman() != null && !spot.getGuidehuman().isBlank())
+            map.put("guidehuman", spot.getGuidehuman());
+        if (spot.getBigprint() != null && !spot.getBigprint().isBlank()) map.put("bigprint", spot.getBigprint());
+        if (spot.getBrailepromotion() != null && !spot.getBrailepromotion().isBlank())
+            map.put("brailepromotion", spot.getBrailepromotion());
+        if (spot.getBlindhandicapetc() != null && !spot.getBlindhandicapetc().isBlank())
+            map.put("blindhandicapetc", spot.getBlindhandicapetc());
+        if (spot.getHearingroom() != null && !spot.getHearingroom().isBlank())
+            map.put("hearingroom", spot.getHearingroom());
+        if (spot.getHearinghandicapetc() != null && !spot.getHearinghandicapetc().isBlank())
+            map.put("hearinghandicapetc", spot.getHearinghandicapetc());
+        if (spot.getBabysparechair() != null && !spot.getBabysparechair().isBlank())
+            map.put("babysparechair", spot.getBabysparechair());
+        if (spot.getInfantsfamilyetc() != null && !spot.getInfantsfamilyetc().isBlank())
+            map.put("infantsfamilyetc", spot.getInfantsfamilyetc());
+
+        return map;
+    }
+
+    public List<TourSpotSearchResponse> searchByTitle(String keyword) {
+        if (keyword == null || keyword.trim().isBlank()) {
+            return List.of(); // 빈 검색어는 무시
+        }
+
+        // ㄱㄴㄷ 같은 초성만 입력한 경우 무시
+        if (!keyword.matches(".*[가-힣]+.*")) {
+            return List.of(); // 완성된 한글이 없으면 무시
+        }
+
+        List<TourSpot> result = tourSpotRepository.findByTitleContaining(keyword);
+
+        return result.stream()
+                .map(spot -> TourSpotSearchResponse.builder()
+                        .id(spot.getContentId()) // 또는 getId()
+                        .title(spot.getTitle())
+                        .address(spot.getAddress())
+                        .latitude(spot.getMapY())  // 위도
+                        .longitude(spot.getMapX()) // 경도
+                        .build())
+                .toList();
     }
 
 }

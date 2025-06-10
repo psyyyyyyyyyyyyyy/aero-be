@@ -1,6 +1,7 @@
 package com.sw.aero.domain.tourspot.controller;
 
 import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
+import com.sw.aero.domain.tourspot.dto.TourSpotSearchResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
 import com.sw.aero.domain.tourspot.service.TourSpotService;
@@ -9,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,10 +44,10 @@ public class TourSpotController {
             @RequestParam(required = false) List<String> themeFilters,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "latest") String sortBy
+            @RequestParam(defaultValue = "recent") String sortBy
     ) {
         Sort sort = Sort.by("id").descending(); // 기본
-        if ("latest".equals(sortBy)) {
+        if ("recent".equals(sortBy)) {
             sort = Sort.by("createdTime").descending();
         } else if ("likes".equals(sortBy)) {
             sort = Sort.unsorted(); // 수동 정렬 처리
@@ -53,5 +55,11 @@ public class TourSpotController {
 
         Pageable pageable = PageRequest.of(page, size, sort);
         return tourSpotService.getFilteredTourSpots(areaCode, sigunguCode, facilityFilters, themeFilters, pageable);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<TourSpotSearchResponse>> search(@RequestParam String keyword) {
+        List<TourSpotSearchResponse> results = tourSpotService.searchByTitle(keyword);
+        return ResponseEntity.ok(results);
     }
 }

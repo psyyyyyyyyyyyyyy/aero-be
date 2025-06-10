@@ -36,5 +36,6 @@ public class CourseRequest {
         private String time;
         private String place;
         private String description;
+        private Long tourSpotId;
     }
 }

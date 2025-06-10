@@ -2,6 +2,7 @@ package com.sw.aero.domain.travellog.controller;
 
 import com.sw.aero.domain.travellog.entity.TravelLog;
 import com.sw.aero.domain.travellog.service.TravelLogService;
+import com.sw.aero.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,18 +17,23 @@ import java.util.List;
 public class TravelLogController {
 
     private final TravelLogService service;
+    private final JwtProvider jwtProvider;
+
+    @GetMapping
+    public List<TravelLog> getMyTravelLogs(@RequestHeader("Authorization") String accessToken) {
+        Long userId = jwtProvider.getUserIdFromToken(accessToken.replace("Bearer ", ""));
+        return service.getMyTravelLogs(userId);
+    }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TravelLog> saveTravelLog(
             @RequestParam String address,
             @RequestParam String content,
-            @RequestPart MultipartFile image
+            @RequestPart MultipartFile image,
+            @RequestHeader("Authorization") String accessToken
     ) throws Exception {
-        return ResponseEntity.ok(service.save(address, content, image));
+        Long userId = jwtProvider.getUserIdFromToken(accessToken.replace("Bearer ", ""));
+        return ResponseEntity.ok(service.save(userId, address, content, image));
     }
 
-    @GetMapping
-    public List<TravelLog> getAllTravelLogs() {
-        return service.getAll();
-    }
 }
