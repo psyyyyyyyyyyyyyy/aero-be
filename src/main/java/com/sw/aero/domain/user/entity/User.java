@@ -12,14 +12,13 @@ import java.time.LocalDateTime;
 @Builder
 public class User {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String socialId;
-    private String email;
     private String name;
-    private String profileImage;
-    private String provider;
+    private String email;
 
     private LocalDateTime createdAt;
 

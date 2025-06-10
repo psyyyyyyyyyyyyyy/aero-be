@@ -1,5 +1,6 @@
 package com.sw.aero.domain.tourspot.service;
 
+import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.entity.TourSpotLike;
 import com.sw.aero.domain.tourspot.repository.TourSpotLikeRepository;
@@ -8,7 +9,8 @@ import com.sw.aero.domain.user.entity.User;
 import com.sw.aero.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import java.util.Optional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -58,4 +60,21 @@ public class TourSpotLikeService {
                 .orElseThrow(() -> new IllegalArgumentException("❌ 존재하지 않는 관광지 ID: " + contentId));
         return likeRepository.countByTourSpotId(spot.getId());
     }
+
+    // 유저가 좋아요한 관광지 목록 조회
+    public List<TourSpotResponse> getLikedTourSpots(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("❌ 존재하지 않는 사용자 ID: " + userId));
+
+        List<TourSpotLike> likes = likeRepository.findAllByUser(user);
+
+        return likes.stream()
+                .map(like -> {
+                    TourSpot spot = like.getTourSpot();
+                    long likeCount = likeRepository.countByTourSpotId(spot.getId());
+                    return TourSpotResponse.from(spot, likeCount);
+                })
+                .toList();
+    }
+
 }

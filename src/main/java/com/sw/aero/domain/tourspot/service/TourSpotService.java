@@ -2,23 +2,24 @@ package com.sw.aero.domain.tourspot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
+import com.sw.aero.domain.tourspot.dto.TourSpotSearchResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
+import com.sw.aero.domain.tourspot.repository.TourSpotLikeRepository;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -29,6 +30,7 @@ public class TourSpotService {
     private String apiKey;
 
     private final TourSpotRepository tourSpotRepository;
+    private final TourSpotLikeRepository tourSpotLikeRepository;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -58,7 +60,7 @@ public class TourSpotService {
                         URI uri = new URI(listUrl);
 
                         ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
-                        log.info("📦 LIST response: {}", response.getBody());
+                        log.info("\uD83D\uDCE6 LIST response: {}", response.getBody());
 
                         JsonNode root = objectMapper.readTree(response.getBody());
                         String resultCode = root.path("response").path("header").path("resultCode").asText();
@@ -146,23 +148,23 @@ public class TourSpotService {
 
                                 spots.add(spot);
                             } catch (Exception e) {
-                                log.warn("❌ DETAIL 파싱 실패: contentId={}, 오류={}", contentId, e.getMessage());
+                                log.warn("\u274C DETAIL \uD30C\uC2F1 \uC2E4\uD328: contentId={}, \uC624\uB958={}", contentId, e.getMessage());
                             }
                         }
 
                         tourSpotRepository.saveAll(spots);
 
                     } catch (Exception e) {
-                        log.error("❌ 전체 요청 실패: region={}, category={}, page={}", regionCode, category, page);
-                        log.error("에러 메시지: ", e);
+                        log.error("\u274C \uC804\uCCB4 \uC694\uCCAD \uC2E4\uD328: region={}, category={}, page={}", regionCode, category, page);
+                        log.error("\uC5D0\uB7EC \uBA54\uC2DC\uC9C0: ", e);
                     }
                 }
             }
         }
     }
 
-    public Page<TourSpot> getFilteredTourSpots(String areaCode, String sigunguCode, List<String> facilityFilters, Pageable pageable) {
-        return tourSpotRepository.findAll((root, query, cb) -> {
+    public Page<TourSpotResponse> getFilteredTourSpots(String areaCode, String sigunguCode, List<String> facilityFilters, List<String> themeFilters, Pageable pageable) {
+        Page<TourSpot> spots = tourSpotRepository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (areaCode != null && !areaCode.isEmpty()) {
@@ -179,7 +181,114 @@ public class TourSpotService {
                 }
             }
 
+            if (themeFilters != null && !themeFilters.isEmpty()) {
+                predicates.add(root.get("categoryCode").in(themeFilters));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         }, pageable);
+
+        // 좋아요 정렬이면 직접 정렬
+        if (pageable.getSort().isUnsorted()) {
+            List<TourSpotResponse> responses = spots.getContent().stream()
+                    .map(spot -> {
+                        long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
+                        return TourSpotResponse.from(spot, likeCount);
+                    })
+                    .sorted(Comparator.comparingLong(TourSpotResponse::getLikeCount).reversed()) // 좋아요 많은 순
+                    .toList();
+
+            // 수동 페이징 처리
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), responses.size());
+            List<TourSpotResponse> pageContent = responses.subList(start, end);
+
+            return new PageImpl<>(pageContent, pageable, responses.size());
+        }
+
+        // 기본 정렬 (latest 등)일 경우
+        return spots.map(spot -> {
+            long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
+            return TourSpotResponse.from(spot, likeCount);
+        });
     }
+
+    public Map<String, String> getBarrierFreeInfoByTourSpotId(Long contentId) {
+        TourSpot spot = tourSpotRepository.findByContentId(contentId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 관광지를 찾을 수 없습니다: " + contentId));
+
+        Map<String, String> map = new HashMap<>();
+
+        if (spot.getParking() != null && !spot.getParking().isBlank()) map.put("parking", spot.getParking());
+        if (spot.getWheelchair() != null && !spot.getWheelchair().isBlank())
+            map.put("wheelchair", spot.getWheelchair());
+        if (spot.getRestroom() != null && !spot.getRestroom().isBlank()) map.put("restroom", spot.getRestroom());
+        if (spot.getElevator() != null && !spot.getElevator().isBlank()) map.put("elevator", spot.getElevator());
+        if (spot.getStroller() != null && !spot.getStroller().isBlank()) map.put("stroller", spot.getStroller());
+        if (spot.getLactationroom() != null && !spot.getLactationroom().isBlank())
+            map.put("lactationroom", spot.getLactationroom());
+        if (spot.getGuidesystem() != null && !spot.getGuidesystem().isBlank())
+            map.put("guidesystem", spot.getGuidesystem());
+        if (spot.getHelpdog() != null && !spot.getHelpdog().isBlank()) map.put("helpdog", spot.getHelpdog());
+        if (spot.getBraileblock() != null && !spot.getBraileblock().isBlank())
+            map.put("braileblock", spot.getBraileblock());
+        if (spot.getSignguide() != null && !spot.getSignguide().isBlank()) map.put("signguide", spot.getSignguide());
+        if (spot.getVideoguide() != null && !spot.getVideoguide().isBlank())
+            map.put("videoguide", spot.getVideoguide());
+        if (spot.getAudioguide() != null && !spot.getAudioguide().isBlank())
+            map.put("audioguide", spot.getAudioguide());
+        if (spot.getExit() != null && !spot.getExit().isBlank()) map.put("exit", spot.getExit());
+        if (spot.getRoute() != null && !spot.getRoute().isBlank()) map.put("route", spot.getRoute());
+        if (spot.getPublictransport() != null && !spot.getPublictransport().isBlank())
+            map.put("publictransport", spot.getPublictransport());
+        if (spot.getTicketoffice() != null && !spot.getTicketoffice().isBlank())
+            map.put("ticketoffice", spot.getTicketoffice());
+        if (spot.getPromotion() != null && !spot.getPromotion().isBlank()) map.put("promotion", spot.getPromotion());
+        if (spot.getAuditorium() != null && !spot.getAuditorium().isBlank())
+            map.put("auditorium", spot.getAuditorium());
+        if (spot.getRoom() != null && !spot.getRoom().isBlank()) map.put("room", spot.getRoom());
+        if (spot.getHandicapetc() != null && !spot.getHandicapetc().isBlank())
+            map.put("handicapetc", spot.getHandicapetc());
+        if (spot.getGuidehuman() != null && !spot.getGuidehuman().isBlank())
+            map.put("guidehuman", spot.getGuidehuman());
+        if (spot.getBigprint() != null && !spot.getBigprint().isBlank()) map.put("bigprint", spot.getBigprint());
+        if (spot.getBrailepromotion() != null && !spot.getBrailepromotion().isBlank())
+            map.put("brailepromotion", spot.getBrailepromotion());
+        if (spot.getBlindhandicapetc() != null && !spot.getBlindhandicapetc().isBlank())
+            map.put("blindhandicapetc", spot.getBlindhandicapetc());
+        if (spot.getHearingroom() != null && !spot.getHearingroom().isBlank())
+            map.put("hearingroom", spot.getHearingroom());
+        if (spot.getHearinghandicapetc() != null && !spot.getHearinghandicapetc().isBlank())
+            map.put("hearinghandicapetc", spot.getHearinghandicapetc());
+        if (spot.getBabysparechair() != null && !spot.getBabysparechair().isBlank())
+            map.put("babysparechair", spot.getBabysparechair());
+        if (spot.getInfantsfamilyetc() != null && !spot.getInfantsfamilyetc().isBlank())
+            map.put("infantsfamilyetc", spot.getInfantsfamilyetc());
+
+        return map;
+    }
+
+    public List<TourSpotSearchResponse> searchByTitle(String keyword) {
+        if (keyword == null || keyword.trim().isBlank()) {
+            return List.of(); // 빈 검색어는 무시
+        }
+
+        // ㄱㄴㄷ 같은 초성만 입력한 경우 무시
+        if (!keyword.matches(".*[가-힣]+.*")) {
+            return List.of(); // 완성된 한글이 없으면 무시
+        }
+
+        List<TourSpot> result = tourSpotRepository.findByTitleContaining(keyword);
+
+        return result.stream()
+                .map(spot -> TourSpotSearchResponse.builder()
+                        .id(spot.getContentId()) // 또는 getId()
+                        .title(spot.getTitle())
+                        .address(spot.getAddress())
+                        .latitude(spot.getMapY())  // 위도
+                        .longitude(spot.getMapX()) // 경도
+                        .build())
+                .toList();
+    }
+
 }
