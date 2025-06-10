@@ -1,11 +1,11 @@
 package com.sw.aero.domain.auth.controller;
 
+import com.sw.aero.domain.auth.dto.GoogleLoginRequest;
 import com.sw.aero.domain.auth.dto.KakaoLoginRequest;
 import com.sw.aero.domain.auth.dto.KakaoLoginResponse;
 import com.sw.aero.domain.auth.entity.RefreshToken;
 import com.sw.aero.domain.auth.repository.RefreshTokenRepository;
 import com.sw.aero.domain.auth.service.AuthService;
-import com.sw.aero.domain.auth.service.KakaoService;
 import com.sw.aero.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final KakaoService kakaoService;
     private final AuthService authService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProvider jwtProvider;
@@ -25,6 +24,11 @@ public class AuthController {
     @PostMapping("/kakao")
     public KakaoLoginResponse kakaoLogin(@RequestBody KakaoLoginRequest request) {
         return authService.kakaoLogin(request);
+    }
+
+    @PostMapping("/google")
+    public KakaoLoginResponse googleLogin(@RequestBody GoogleLoginRequest request) {
+        return authService.googleLogin(request);
     }
 
     @PostMapping("/reissue")
