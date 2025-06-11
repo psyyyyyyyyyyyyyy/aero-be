@@ -3,6 +3,7 @@ package com.sw.aero.domain.auth.service;
 import com.sw.aero.domain.auth.dto.*;
 import com.sw.aero.domain.auth.entity.RefreshToken;
 import com.sw.aero.domain.auth.repository.RefreshTokenRepository;
+import com.sw.aero.domain.user.entity.SocialType;
 import com.sw.aero.domain.user.entity.User;
 import com.sw.aero.domain.user.repository.UserRepository;
 import com.sw.aero.global.jwt.JwtProvider;
@@ -28,6 +29,8 @@ public class AuthService {
                         User.builder()
                                 .email(kakaoUser.getKakao_account().getEmail())
                                 .name(kakaoUser.getKakao_account().getProfile().getNickname())
+                                .socialId(socialId)
+                                .socialType(SocialType.KAKAO)
                                 .build()
                 ));
 
@@ -54,6 +57,7 @@ public class AuthService {
                                 .email(googleUser.getEmail())
                                 .name(googleUser.getName())
                                 .socialId(socialId)
+                                .socialType(SocialType.GOOGLE)
                                 .build()
                 ));
 

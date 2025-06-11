@@ -18,11 +18,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/courses")
@@ -71,10 +70,24 @@ public class CourseController {
     }
 
     @GetMapping("/users/courses")
-    public List<CourseResponse> getCoursesByUser(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> getCoursesByUser(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "all") String type) {
+
         Long userId = extractUserIdFromToken(authHeader);
-        return courseService.getCoursesByUser(userId);
+
+        if (type.equalsIgnoreCase("user")) {
+            return ResponseEntity.ok(courseService.getUserCoursesByUser(userId));
+        } else if (type.equalsIgnoreCase("ai")) {
+            return ResponseEntity.ok(courseService.getAiCoursesByUser(userId));
+        } else {
+            Map<String, Object> result = new HashMap<>();
+            result.put("userCourses", courseService.getUserCoursesByUser(userId));
+            result.put("aiCourses", courseService.getAiCoursesByUser(userId));
+            return ResponseEntity.ok(result);
+        }
     }
+
 
     @PostMapping("/{courseId}/like")
     public void likeCourse(@PathVariable Long courseId, @RequestHeader("Authorization") String authHeader) {
@@ -180,6 +193,54 @@ public class CourseController {
 
         return new PageImpl<>(paged, PageRequest.of(page, size), results.size());
     }
+
+    @GetMapping("/search")
+    public Page<CombinedCourseResponse> searchCourses(
+            @RequestParam String keyword,
+            @RequestParam(required = false) String type, // "user", "ai", or null
+            @RequestParam(defaultValue = "recent") String sortBy,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        List<CombinedCourseResponse> results = new ArrayList<>();
+
+        if (type == null || type.equals("user")) {
+            List<UserCourse> userCourses = userCourseRepository.findAll();
+            results.addAll(userCourses.stream()
+                    .filter(course -> course.getTitle() != null && course.getTitle().contains(keyword))
+                    .map(course -> {
+                        long likeCount = courseLikeRepository.countByUserCourse(course);
+                        return CombinedCourseResponse.fromUserCourse(course, likeCount);
+                    })
+                    .toList());
+        }
+
+        if (type == null || type.equals("ai")) {
+            List<AiCourse> aiCourses = aiCourseRepository.findAll();
+            results.addAll(aiCourses.stream()
+                    .filter(course -> course.getTitle() != null && course.getTitle().contains(keyword))
+                    .map(course -> {
+                        long likeCount = courseLikeRepository.countByAiCourse(course);
+                        return CombinedCourseResponse.fromAiCourse(course, likeCount);
+                    })
+                    .toList());
+        }
+
+        // 정렬
+        if ("like".equals(sortBy)) {
+            results.sort(Comparator.comparingLong(CombinedCourseResponse::getLikeCount).reversed());
+        } else if ("recent".equals(sortBy)) {
+            results.sort(Comparator.comparing(CombinedCourseResponse::getCreatedAt).reversed());
+        }
+
+        // 페이징
+        int start = Math.min(page * size, results.size());
+        int end = Math.min(start + size, results.size());
+        List<CombinedCourseResponse> paged = results.subList(start, end);
+
+        return new PageImpl<>(paged, PageRequest.of(page, size), results.size());
+    }
+
 }
 
 

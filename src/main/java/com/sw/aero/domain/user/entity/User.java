@@ -20,6 +20,9 @@ public class User {
     private String name;
     private String email;
 
+    @Enumerated(EnumType.STRING)
+    private SocialType socialType;
+
     private LocalDateTime createdAt;
 
     @PrePersist
