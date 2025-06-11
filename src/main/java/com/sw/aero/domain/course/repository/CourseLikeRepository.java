@@ -28,4 +28,7 @@ public interface CourseLikeRepository extends JpaRepository<CourseLike, Long> {
     // 유저가 좋아요 누른 유저 코스 목록
     List<CourseLike> findAllByUserAndUserCourseIsNotNull(User user);
 
+    void deleteAllByUser(User user);
+
+
 }

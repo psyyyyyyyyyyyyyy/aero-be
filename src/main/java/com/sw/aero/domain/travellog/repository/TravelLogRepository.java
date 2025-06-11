@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface TravelLogRepository extends JpaRepository<TravelLog, Long> {
     List<TravelLog> findAllByUser(User user);
+
+    void deleteAllByUser(User user);
 }

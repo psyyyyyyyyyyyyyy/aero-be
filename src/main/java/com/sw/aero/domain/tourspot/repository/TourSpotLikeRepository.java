@@ -16,4 +16,5 @@ public interface TourSpotLikeRepository extends JpaRepository<TourSpotLike, Long
 
     List<TourSpotLike> findAllByUser(User user);
 
+    void deleteAllByUser(User user);
 }

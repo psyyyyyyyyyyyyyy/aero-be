@@ -1,5 +1,8 @@
 package com.sw.aero.domain.course.service;
 
+import com.sw.aero.domain.aicourse.dto.AiCourseResponse;
+import com.sw.aero.domain.aicourse.entity.AiCourse;
+import com.sw.aero.domain.aicourse.repository.AiCourseRepository;
 import com.sw.aero.domain.course.dto.request.CourseRequest;
 import com.sw.aero.domain.course.dto.response.CourseResponse;
 import com.sw.aero.domain.course.entity.CourseLike;
@@ -30,6 +33,7 @@ public class CourseService {
     private final DetailScheduleRepository detailScheduleRepository;
     private final CourseLikeRepository courseLikeRepository;
     private final TourSpotService tourSpotService;
+    private final AiCourseRepository aiCourseRepository;
 
 
     public Long createCourse(Long userId, CourseRequest request) {
@@ -137,19 +141,34 @@ public class CourseService {
         courseRepository.delete(course);
     }
 
-    public List<CourseResponse> getCoursesByUser(Long userId) {
+    public List<CourseResponse> getUserCoursesByUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("해당 ID의 유저를 찾을 수 없습니다: " + userId));
 
         List<UserCourse> userCourses = courseRepository.findByUser(user);
+
         return userCourses.stream()
                 .map(course -> {
                     long likeCount = courseLikeRepository.countByUserCourse(course);
                     return CourseResponse.from(course, likeCount);
                 })
                 .toList();
-
     }
+
+    public List<AiCourseResponse> getAiCoursesByUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("해당 ID의 유저를 찾을 수 없습니다: " + userId));
+
+        List<AiCourse> aiCourses = aiCourseRepository.findAllByUser(user);
+
+        return aiCourses.stream()
+                .map(course -> {
+                    long likeCount = courseLikeRepository.countByAiCourse(course);
+                    return AiCourseResponse.from(course, likeCount);
+                })
+                .toList();
+    }
+
 
     public void likeCourse(Long userId, Long courseId) {
         User user = userRepository.findById(userId)

@@ -27,5 +27,33 @@ public class KakaoService {
 
         return response.getBody();
     }
+
+    public void logout(String accessToken) {
+        String url = "https://kapi.kakao.com/v1/user/logout";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        RestTemplate restTemplate = new RestTemplate();
+
+        restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+    }
+
+    public void unlink(String accessToken) {
+        String url = "https://kapi.kakao.com/v1/user/unlink";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        RestTemplate restTemplate = new RestTemplate();
+
+        restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+    }
+
+
 }
 
