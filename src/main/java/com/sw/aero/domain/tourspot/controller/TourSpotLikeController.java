@@ -4,9 +4,11 @@ import com.sw.aero.domain.tourspot.dto.TourSpotResponse;
 import com.sw.aero.domain.tourspot.service.TourSpotLikeService;
 import com.sw.aero.global.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -47,10 +49,13 @@ public class TourSpotLikeController {
     }
 
     @GetMapping("/my")
-    public List<TourSpotResponse> getLikedTourSpots(
-            @RequestHeader("Authorization") String accessToken
+    public Page<TourSpotResponse> getLikedTourSpots(
+            @RequestHeader("Authorization") String accessToken,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
         Long userId = jwtProvider.getUserIdFromToken(accessToken.replace("Bearer ", ""));
-        return likeService.getLikedTourSpots(userId);
+        Pageable pageable = PageRequest.of(page, size);
+        return likeService.getLikedTourSpots(userId, pageable);
     }
 }

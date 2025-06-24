@@ -23,6 +23,8 @@ public class AiDetailSchedule {
     private String place;
     private String placeId;
     private String address;
+    private Double mapX;
+    private Double mapY;
     @Column(length = 1000)
     private String imageUrl;
     private String description;

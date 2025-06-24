@@ -20,6 +20,7 @@ public class AiCourseDetailResponse {
     private String people;
     private boolean allow;
     private long likeCount;
+    private boolean liked;
     private LocalDateTime createdAt;
     private UserInfo user;
     private List<ScheduleInfo> schedules;
@@ -43,12 +44,14 @@ public class AiCourseDetailResponse {
         private String place;
         private String placeId;
         private String address;
+        private Double mapX;
+        private Double mapY;
         private String imageUrl;
         private String description;
         private Map<String, String> barrierFree;
     }
 
-    public static AiCourseDetailResponse from(AiCourse course, long likeCount) {
+    public static AiCourseDetailResponse from(AiCourse course, long likeCount, boolean liked) {
         return AiCourseDetailResponse.builder()
                 .id(course.getId())
                 .title(course.getTitle())
@@ -58,6 +61,7 @@ public class AiCourseDetailResponse {
                 .people(course.getPeople())
                 .allow(course.isAllow())
                 .createdAt(course.getCreatedAt())
+                .liked(liked)
                 .likeCount(likeCount)
                 .user(UserInfo.builder()
                         .id(course.getUser().getId())
@@ -74,6 +78,8 @@ public class AiCourseDetailResponse {
                                 .place(s.getPlace())
                                 .placeId(s.getPlaceId())
                                 .address(s.getAddress())
+                                .mapX(s.getMapX())
+                                .mapY(s.getMapY())
                                 .imageUrl(s.getImageUrl())
                                 .description(s.getDescription())
                                 .barrierFree(s.getBarrierFree())

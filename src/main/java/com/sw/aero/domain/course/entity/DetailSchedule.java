@@ -14,10 +14,14 @@ public class DetailSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private int day;
     private String time;
     private String place;
+    private String address;
+    private Double mapX;
+    private Double mapY;
     private String description;
-
+    private String firstImage;
     private Long tourSpotId;  // 관광지 ID
 
     @ManyToOne(fetch = FetchType.LAZY)
