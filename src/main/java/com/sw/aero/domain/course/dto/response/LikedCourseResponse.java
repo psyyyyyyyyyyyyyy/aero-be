@@ -1,6 +1,8 @@
 package com.sw.aero.domain.course.dto.response;
 
 import com.sw.aero.domain.aicourse.entity.AiCourse;
+import com.sw.aero.domain.aicourse.entity.AiDetailSchedule;
+import com.sw.aero.domain.course.entity.DetailSchedule;
 import com.sw.aero.domain.course.entity.UserCourse;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,9 +22,17 @@ public class LikedCourseResponse {
     private boolean allow;
     private long likeCount;
     private LocalDateTime createdAt;
+    private String image;
 
     // UserCourse 전용 생성 메서드
     public static LikedCourseResponse fromUserCourse(UserCourse course, long likeCount) {
+
+        String image = course.getDetailedSchedule().stream()
+                .map(DetailSchedule::getFirstImage)
+                .filter(img -> img != null && !img.isBlank())
+                .findFirst()
+                .orElse(null);
+
         return LikedCourseResponse.builder()
                 .id(course.getId())
                 .type("user")
@@ -34,11 +44,19 @@ public class LikedCourseResponse {
                 .allow(course.isAllow())
                 .likeCount(likeCount)
                 .createdAt(course.getCreatedAt())
+                .image(image)
                 .build();
     }
 
     // AiCourse 전용 생성 메서드
     public static LikedCourseResponse fromAiCourse(AiCourse course, long likeCount) {
+
+        String image = course.getSchedules().stream()
+                .map(AiDetailSchedule::getImageUrl)
+                .filter(img -> img != null && !img.isBlank())
+                .findFirst()
+                .orElse(null);
+
         return LikedCourseResponse.builder()
                 .id(course.getId())
                 .type("ai")
@@ -50,6 +68,7 @@ public class LikedCourseResponse {
                 .allow(course.isAllow())
                 .likeCount(likeCount)
                 .createdAt(course.getCreatedAt())
+                .image(image)
                 .build();
     }
 }

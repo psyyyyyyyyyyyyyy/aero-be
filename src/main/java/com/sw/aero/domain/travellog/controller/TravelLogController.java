@@ -36,4 +36,13 @@ public class TravelLogController {
         return ResponseEntity.ok(service.save(userId, address, content, image));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTravelLog(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String accessToken
+    ) {
+        Long userId = jwtProvider.getUserIdFromToken(accessToken.replace("Bearer ", ""));
+        service.deleteTravelLog(userId, id);
+        return ResponseEntity.noContent().build();
+    }
 }

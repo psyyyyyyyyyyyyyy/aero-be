@@ -7,6 +7,7 @@ import com.sw.aero.domain.tourspot.dto.TourSpotSearchResponse;
 import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.repository.TourSpotLikeRepository;
 import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
+import com.sw.aero.domain.user.entity.User;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,16 +36,15 @@ public class TourSpotService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final List<String> CATEGORY_CODES = List.of("AC", "C01", "EV", "EX", "FD", "HS", "LS", "NA", "SH", "VE");
-    private static final List<String> REGION_CODES = List.of("11");
+    private static final List<String> CATEGORY_CODES = List.of("AC", "EV", "EX", "FD", "HS", "LS", "NA", "SH", "VE");
 
     private String getSafe(JsonNode node, String field) {
         JsonNode valueNode = node.get(field);
         return valueNode != null && !valueNode.isNull() ? valueNode.asText() : "";
     }
 
-    public void importBarrierFreeTourSpots() {
-        for (String regionCode : REGION_CODES) {
+    public void importBarrierFreeTourSpots(List<String> regionCodes) {
+        for (String regionCode : regionCodes) {
             for (String category : CATEGORY_CODES) {
                 for (int page = 1; page <= 1; page++) {
                     try {
@@ -163,24 +164,29 @@ public class TourSpotService {
         }
     }
 
-    public Page<TourSpotResponse> getFilteredTourSpots(String areaCode, String sigunguCode, List<String> facilityFilters, List<String> themeFilters, Pageable pageable) {
+    public Page<TourSpotResponse> getFilteredTourSpots(
+            String areaCode,
+            String sigunguCode,
+            List<String> facilityFilters,
+            List<String> themeFilters,
+            Pageable pageable,
+            User user,
+            String sortBy
+    ) {
         Page<TourSpot> spots = tourSpotRepository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (areaCode != null && !areaCode.isEmpty()) {
                 predicates.add(cb.equal(root.get("areaCode"), areaCode));
             }
-
             if (sigunguCode != null && !sigunguCode.isEmpty()) {
                 predicates.add(cb.equal(root.get("sigunguCode"), sigunguCode));
             }
-
             if (facilityFilters != null && !facilityFilters.isEmpty()) {
                 for (String facility : facilityFilters) {
                     predicates.add(cb.notEqual(cb.trim(cb.lower(root.get(facility))), ""));
                 }
             }
-
             if (themeFilters != null && !themeFilters.isEmpty()) {
                 predicates.add(root.get("categoryCode").in(themeFilters));
             }
@@ -188,30 +194,59 @@ public class TourSpotService {
             return cb.and(predicates.toArray(new Predicate[0]));
         }, pageable);
 
-        // 좋아요 정렬이면 직접 정렬
-        if (pageable.getSort().isUnsorted()) {
-            List<TourSpotResponse> responses = spots.getContent().stream()
+        Set<Long> likedSpotIds = user == null
+                ? Collections.emptySet()
+                : tourSpotLikeRepository.findAllByUser(user).stream()
+                .map(like -> like.getTourSpot().getId())
+                .collect(Collectors.toSet());
+
+        if ("likes".equals(sortBy)) {
+            // 전체 필터 조건으로 페이징 없이 다시 조회
+            List<TourSpot> allSpots = tourSpotRepository.findAll((root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+
+                if (areaCode != null && !areaCode.isEmpty()) {
+                    predicates.add(cb.equal(root.get("areaCode"), areaCode));
+                }
+                if (sigunguCode != null && !sigunguCode.isEmpty()) {
+                    predicates.add(cb.equal(root.get("sigunguCode"), sigunguCode));
+                }
+                if (facilityFilters != null && !facilityFilters.isEmpty()) {
+                    for (String facility : facilityFilters) {
+                        predicates.add(cb.notEqual(cb.trim(cb.lower(root.get(facility))), ""));
+                    }
+                }
+                if (themeFilters != null && !themeFilters.isEmpty()) {
+                    predicates.add(root.get("categoryCode").in(themeFilters));
+                }
+
+                return cb.and(predicates.toArray(new Predicate[0]));
+            });
+
+            List<TourSpotResponse> responses = allSpots.stream()
                     .map(spot -> {
                         long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
-                        return TourSpotResponse.from(spot, likeCount);
+                        boolean liked = likedSpotIds.contains(spot.getId());
+                        return TourSpotResponse.from(spot, likeCount, liked);
                     })
-                    .sorted(Comparator.comparingLong(TourSpotResponse::getLikeCount).reversed()) // 좋아요 많은 순
+                    .sorted(Comparator.comparingLong(TourSpotResponse::getLikeCount).reversed())
                     .toList();
 
-            // 수동 페이징 처리
             int start = (int) pageable.getOffset();
             int end = Math.min(start + pageable.getPageSize(), responses.size());
             List<TourSpotResponse> pageContent = responses.subList(start, end);
 
-            return new PageImpl<>(pageContent, pageable, responses.size());
+            return new PageImpl<>(pageContent, pageable, responses.size()); // ✅ 정확한 전체 개수 전달
         }
 
-        // 기본 정렬 (latest 등)일 경우
+
         return spots.map(spot -> {
             long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
-            return TourSpotResponse.from(spot, likeCount);
+            boolean liked = likedSpotIds.contains(spot.getId());
+            return TourSpotResponse.from(spot, likeCount, liked);
         });
     }
+
 
     public Map<String, String> getBarrierFreeInfoByTourSpotId(Long contentId) {
         TourSpot spot = tourSpotRepository.findByContentId(contentId)
@@ -268,27 +303,42 @@ public class TourSpotService {
         return map;
     }
 
-    public List<TourSpotSearchResponse> searchByTitle(String keyword) {
-        if (keyword == null || keyword.trim().isBlank()) {
-            return List.of(); // 빈 검색어는 무시
-        }
+    public Page<TourSpotSearchResponse> searchByTitle(String keyword, Pageable pageable, String sortBy) {
+        if (keyword == null || keyword.trim().isBlank()) return Page.empty();
+        if (!keyword.matches(".*[가-힣]+.*")) return Page.empty();
 
-        // ㄱㄴㄷ 같은 초성만 입력한 경우 무시
-        if (!keyword.matches(".*[가-힣]+.*")) {
-            return List.of(); // 완성된 한글이 없으면 무시
-        }
+        Page<TourSpot> result = tourSpotRepository.findByTitleContaining(keyword, Pageable.unpaged());
 
-        List<TourSpot> result = tourSpotRepository.findByTitleContaining(keyword);
-
-        return result.stream()
-                .map(spot -> TourSpotSearchResponse.builder()
-                        .id(spot.getContentId()) // 또는 getId()
-                        .title(spot.getTitle())
-                        .address(spot.getAddress())
-                        .latitude(spot.getMapY())  // 위도
-                        .longitude(spot.getMapX()) // 경도
-                        .build())
+        List<TourSpotSearchResponse> responses = result.getContent().stream()
+                .map(spot -> {
+                    long likeCount = tourSpotLikeRepository.countByTourSpotId(spot.getId());
+                    return TourSpotSearchResponse.from(spot, likeCount);
+                })
                 .toList();
+
+        if ("likes".equals(sortBy)) {
+            responses = responses.stream()
+                    .sorted(Comparator.comparingLong(TourSpotSearchResponse::getLikeCount).reversed())
+                    .toList();
+        }
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), responses.size());
+        List<TourSpotSearchResponse> pageContent = responses.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, responses.size());
     }
+
+    public String getFirstImageByTourSpotId(Long tourSpotId) {
+        return tourSpotRepository.findByContentId(tourSpotId)
+                .map(TourSpot::getFirstImage)
+                .orElse(null);
+    }
+
+    public TourSpot getTourSpotByContentId(Long contentId) {
+        return tourSpotRepository.findByContentId(contentId)
+                .orElse(null); // orElseThrow()를 써도 되지만 null-safe하게 처리하려면 이게 좋습니다
+    }
+
 
 }

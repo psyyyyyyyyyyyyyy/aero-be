@@ -1,6 +1,7 @@
 package com.sw.aero.domain.aicourse.dto;
 
 import com.sw.aero.domain.aicourse.entity.AiCourse;
+import com.sw.aero.domain.aicourse.entity.AiDetailSchedule;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -20,8 +21,15 @@ public class AiCourseResponse {
     private long likeCount;
     private LocalDateTime createdAt;
     private Long userId;
+    private String image;
 
     public static AiCourseResponse from(AiCourse course, long likeCount) {
+        String image = course.getSchedules().stream()
+                .map(AiDetailSchedule::getImageUrl)
+                .filter(img -> img != null && !img.isBlank())
+                .findFirst()
+                .orElse(null);
+
         return AiCourseResponse.builder()
                 .id(course.getId())
                 .title(course.getTitle())
@@ -32,7 +40,7 @@ public class AiCourseResponse {
                 .allow(course.isAllow())
                 .likeCount(likeCount)
                 .createdAt(course.getCreatedAt())
-                .userId(course.getUser() != null ? course.getUser().getId() : null)
+                .image(image)
                 .build();
     }
 }

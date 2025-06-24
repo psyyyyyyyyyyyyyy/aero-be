@@ -11,12 +11,15 @@ import com.sw.aero.domain.course.entity.UserCourse;
 import com.sw.aero.domain.course.repository.CourseLikeRepository;
 import com.sw.aero.domain.course.repository.DetailScheduleRepository;
 import com.sw.aero.domain.course.repository.UserCourseRepository;
+import com.sw.aero.domain.tourspot.entity.TourSpot;
 import com.sw.aero.domain.tourspot.service.TourSpotService;
 import com.sw.aero.domain.user.entity.User;
 import com.sw.aero.domain.user.repository.UserRepository;
 import com.sw.aero.global.exception.NotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -35,7 +38,7 @@ public class CourseService {
     private final TourSpotService tourSpotService;
     private final AiCourseRepository aiCourseRepository;
 
-
+    //코스 생성
     public Long createCourse(Long userId, CourseRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -54,11 +57,13 @@ public class CourseService {
 
         List<DetailSchedule> detailSchedules = request.getDetailedSchedule().stream()
                 .map(d -> DetailSchedule.builder()
+                        .day(d.getDay())
                         .time(d.getTime())
                         .place(d.getPlace())
                         .description(d.getDescription())
                         .tourSpotId(d.getTourSpotId())
                         .userCourse(course)
+                        .firstImage(d.getFirstImage())
                         .build())
                 .collect(Collectors.toList());
 
@@ -67,19 +72,26 @@ public class CourseService {
         return course.getId();
     }
 
-    public CourseResponse getCourseById(Long courseId) {
+    //아이디로 코스 상세조회
+    public CourseResponse getCourseById(Long courseId, User user) {
         UserCourse course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new NotFoundException("해당 ID의 코스를 찾을 수 없습니다: " + courseId));
 
         long likeCount = courseLikeRepository.countByUserCourse(course);
+        boolean liked = user != null &&
+                courseLikeRepository.findByUserAndUserCourse(user, course).isPresent();
 
         List<CourseResponse.DetailScheduleDto> schedules = course.getDetailedSchedule().stream()
                 .map(detail -> {
                     Map<String, String> barrierFree = null;
+                    TourSpot spot = null;
+
                     if (detail.getTourSpotId() != null) {
                         barrierFree = tourSpotService.getBarrierFreeInfoByTourSpotId(detail.getTourSpotId());
+                        spot = tourSpotService.getTourSpotByContentId(detail.getTourSpotId());
                     }
-                    return CourseResponse.DetailScheduleDto.from(detail, barrierFree);
+
+                    return CourseResponse.DetailScheduleDto.from(detail, barrierFree, spot);
                 })
                 .toList();
 
@@ -92,19 +104,21 @@ public class CourseService {
                 .people(course.getPeople())
                 .allow(course.isAllow())
                 .likeCount(likeCount)
+                .liked(liked)
                 .detailedSchedule(schedules)
                 .build();
     }
 
-    public List<CourseResponse> getAllCourses() {
-        List<UserCourse> userCourses = courseRepository.findAll(); // 리스트 먼저 가져오기
-        return userCourses.stream()
-                .map(course -> {
-                    long likeCount = courseLikeRepository.countByUserCourse(course);
-                    return CourseResponse.from(course, likeCount);
-                })
-                .toList();
-    }
+
+//    public List<CourseResponse> getAllCourses() {
+//        List<UserCourse> userCourses = courseRepository.findAll(); // 리스트 먼저 가져오기
+//        return userCourses.stream()
+//                .map(course -> {
+//                    long likeCount = courseLikeRepository.countByUserCourse(course);
+//                    return CourseResponse.from(course, likeCount);
+//                })
+//                .toList();
+//    }
 
 
     public CourseResponse updateCourse(Long courseId, CourseRequest request) {
@@ -141,32 +155,28 @@ public class CourseService {
         courseRepository.delete(course);
     }
 
-    public List<CourseResponse> getUserCoursesByUser(Long userId) {
+    public Page<CourseResponse> getUserCoursesByUser(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("해당 ID의 유저를 찾을 수 없습니다: " + userId));
 
-        List<UserCourse> userCourses = courseRepository.findByUser(user);
+        Page<UserCourse> userCourses = courseRepository.findByUser(user, pageable);
 
-        return userCourses.stream()
-                .map(course -> {
-                    long likeCount = courseLikeRepository.countByUserCourse(course);
-                    return CourseResponse.from(course, likeCount);
-                })
-                .toList();
+        return userCourses.map(course -> {
+            long likeCount = courseLikeRepository.countByUserCourse(course);
+            return CourseResponse.from(course, likeCount, tourSpotService);
+        });
     }
 
-    public List<AiCourseResponse> getAiCoursesByUser(Long userId) {
+    public Page<AiCourseResponse> getAiCoursesByUser(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("해당 ID의 유저를 찾을 수 없습니다: " + userId));
 
-        List<AiCourse> aiCourses = aiCourseRepository.findAllByUser(user);
+        Page<AiCourse> aiCourses = aiCourseRepository.findAllByUser(user, pageable);
 
-        return aiCourses.stream()
-                .map(course -> {
-                    long likeCount = courseLikeRepository.countByAiCourse(course);
-                    return AiCourseResponse.from(course, likeCount);
-                })
-                .toList();
+        return aiCourses.map(course -> {
+            long likeCount = courseLikeRepository.countByAiCourse(course);
+            return AiCourseResponse.from(course, likeCount);
+        });
     }
 
 

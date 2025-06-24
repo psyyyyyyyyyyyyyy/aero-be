@@ -27,6 +27,8 @@ public class TravelPlanDTO {
         private String place;
         private String placeId;
         private String address;
+        private Double mapX;
+        private Double mapY;
         private String imageUrl;
         private String description;
         private Map<String, String> barrierFree;

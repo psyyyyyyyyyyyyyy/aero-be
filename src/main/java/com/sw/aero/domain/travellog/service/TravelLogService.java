@@ -4,9 +4,12 @@ import com.sw.aero.domain.travellog.entity.TravelLog;
 import com.sw.aero.domain.travellog.repository.TravelLogRepository;
 import com.sw.aero.domain.user.entity.User;
 import com.sw.aero.domain.user.repository.UserRepository;
+import com.sw.aero.global.exception.NotFoundException;
 import com.sw.aero.global.s3.service.S3Service;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TravelLogService {
 
-    private final TravelLogRepository repository;
+    private final TravelLogRepository travelLogRepository;
     private final UserRepository userRepository;
     private final S3Service s3Service;
 
@@ -39,13 +42,27 @@ public class TravelLogService {
                 .user(user)
                 .build();
 
-        return repository.save(log);
+        return travelLogRepository.save(log);
     }
 
     public List<TravelLog> getMyTravelLogs(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return repository.findAllByUser(user);
+        return travelLogRepository.findAllByUser(user);
     }
+
+    @Transactional
+    public void deleteTravelLog(Long userId, Long travelLogId) {
+        TravelLog travelLog = travelLogRepository.findById(travelLogId)
+                .orElseThrow(() -> new NotFoundException("TravelLog not found"));
+
+        if (!travelLog.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("삭제 권한이 없습니다.");
+        }
+
+        travelLogRepository.delete(travelLog);
+    }
+
+
 }

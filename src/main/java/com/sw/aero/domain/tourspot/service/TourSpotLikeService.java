@@ -8,6 +8,9 @@ import com.sw.aero.domain.tourspot.repository.TourSpotRepository;
 import com.sw.aero.domain.user.entity.User;
 import com.sw.aero.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -62,19 +65,26 @@ public class TourSpotLikeService {
     }
 
     // 유저가 좋아요한 관광지 목록 조회
-    public List<TourSpotResponse> getLikedTourSpots(Long userId) {
+    public Page<TourSpotResponse> getLikedTourSpots(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("❌ 존재하지 않는 사용자 ID: " + userId));
 
         List<TourSpotLike> likes = likeRepository.findAllByUser(user);
 
-        return likes.stream()
+        List<TourSpotResponse> responses = likes.stream()
                 .map(like -> {
                     TourSpot spot = like.getTourSpot();
                     long likeCount = likeRepository.countByTourSpotId(spot.getId());
-                    return TourSpotResponse.from(spot, likeCount);
+                    return TourSpotResponse.from(spot, likeCount, true); // 항상 liked = true
                 })
                 .toList();
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), responses.size());
+
+        List<TourSpotResponse> pageContent = responses.subList(start, end);
+        return new PageImpl<>(pageContent, pageable, responses.size());
     }
+
 
 }
